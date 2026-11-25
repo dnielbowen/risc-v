@@ -565,8 +565,6 @@ class Simulator {
     this.rom = JSON.parse(JSON.stringify(PRESET_PROGRAMS.fib.rom));
     this.tape = [];
     this.lastRecordedAcc = null;
-
-    this.buildMode('cpu35');
   }
 
   addRelay(id, label, group, x, y) {
@@ -848,6 +846,7 @@ class Simulator {
 }
 
 const sim = new Simulator();
+sim.buildMode('cpu35');
 
 // ============================================================================
 // 4. SIDEBAR UI & INTERACTIVE SWITCHES / ROM MATRIX
