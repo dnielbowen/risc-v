@@ -1,0 +1,1297 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Electromechanical Relay Computer Simulator (2 to 35 Relays)</title>
+<style>
+  :root {
+    --bg: #0f141c;
+    --panel: #171f2c;
+    --panel-border: #2a364b;
+    --text: #e6edf3;
+    --muted: #8b9bb4;
+    --copper: #d97736;
+    --brass: #e5b84b;
+    --wire-off: #334155;
+    --wire-on: #ff9e3b;
+    --led-on: #ff3b30;
+    --led-green: #34c759;
+    --accent: #38bdf8;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    overflow: hidden;
+  }
+  header {
+    background: #121822;
+    border-bottom: 1px solid var(--panel-border);
+    padding: 10px 18px;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px;
+    flex-wrap: wrap;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .brand h1 {
+    font-size: 1.08rem;
+    font-weight: 700;
+    letter-spacing: 0.3px;
+    color: var(--brass);
+  }
+  .badge {
+    background: #253146;
+    color: var(--accent);
+    font-size: 0.75rem;
+    padding: 3px 8px;
+    border-radius: 6px;
+    font-family: ui-monospace, monospace;
+  }
+  .toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  select, button {
+    background: #1f2a3c;
+    color: var(--text);
+    border: 1px solid #384a66;
+    border-radius: 6px;
+    padding: 6px 12px;
+    font-size: 0.84rem;
+    cursor: pointer;
+    transition: all 0.12s ease;
+  }
+  select:hover, button:hover {
+    background: #2b3a52;
+    border-color: var(--accent);
+  }
+  button.primary {
+    background: #1d4ed8;
+    border-color: #3b82f6;
+    font-weight: 600;
+  }
+  button.primary.running {
+    background: #b45309;
+    border-color: #f59e0b;
+  }
+  .slider-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    color: var(--muted);
+    background: #18202e;
+    padding: 4px 10px;
+    border-radius: 6px;
+    border: 1px solid #263246;
+  }
+  .slider-group input[type=range] {
+    width: 85px;
+    accent-color: var(--brass);
+  }
+  main {
+    display: grid;
+    grid-template-columns: 340px 1fr;
+    flex: 1;
+    overflow: hidden;
+  }
+  aside {
+    background: var(--panel);
+    border-right: 1px solid var(--panel-border);
+    padding: 14px;
+    overflow-y: auto;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+  }
+  .card {
+    background: #111722;
+    border: 1px solid #263247;
+    border-radius: 8px;
+    padding: 12px;
+  }
+  .card h2 {
+    font-size: 0.82rem;
+    text-transform: uppercase;
+    letter-spacing: 0.7px;
+    color: var(--brass);
+    margin-bottom: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .card p {
+    font-size: 0.81rem;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  .led-strip {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    margin-top: 6px;
+  }
+  .led-box {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 3px;
+    background: #172030;
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid #25344d;
+    min-width: 58px;
+  }
+  .led-box .lbl {
+    font-size: 0.7rem;
+    color: var(--muted);
+    font-family: ui-monospace, monospace;
+  }
+  .led-box .val {
+    font-size: 1.05rem;
+    font-weight: 700;
+    font-family: ui-monospace, monospace;
+    color: #fff;
+  }
+  .dots {
+    display: flex;
+    gap: 4px;
+  }
+  .dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: #2a1818;
+    border: 1px solid #4d2525;
+    transition: all 0.05s;
+  }
+  .dot.on {
+    background: #ff3b30;
+    box-shadow: 0 0 8px #ff3b30;
+    border-color: #ff8b80;
+  }
+  .dot.green.on {
+    background: #34c759;
+    box-shadow: 0 0 8px #34c759;
+    border-color: #86efac;
+  }
+  .switch-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 8px;
+    gap: 6px;
+  }
+  .toggle-btn {
+    flex: 1;
+    padding: 7px 6px;
+    font-family: ui-monospace, monospace;
+    font-size: 0.78rem;
+    font-weight: 600;
+    text-align: center;
+    border-radius: 6px;
+    background: #1c2536;
+    border: 1px solid #334155;
+    color: var(--muted);
+    cursor: pointer;
+  }
+  .toggle-btn.active {
+    background: #422006;
+    border-color: #f59e0b;
+    color: #fde68a;
+    box-shadow: inset 0 0 8px rgba(245, 158, 11, 0.35);
+  }
+  .rom-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: ui-monospace, monospace;
+    font-size: 0.76rem;
+    margin-top: 6px;
+  }
+  .rom-table th, .rom-table td {
+    padding: 4px 5px;
+    border-bottom: 1px solid #222d40;
+    text-align: left;
+  }
+  .rom-table tr.active-row {
+    background: rgba(245, 158, 11, 0.22);
+    outline: 1px solid #f59e0b;
+  }
+  .rom-table select {
+    padding: 2px 4px;
+    font-size: 0.74rem;
+    font-family: ui-monospace, monospace;
+    background: #172030;
+  }
+  .canvas-wrap {
+    position: relative;
+    width: 100%;
+    height: 100%;
+    background: radial-gradient(circle at center, #161f2e 0%, #0b0f17 100%);
+    overflow: hidden;
+  }
+  canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+  }
+  .hud-overlay {
+    position: absolute;
+    bottom: 12px;
+    left: 14px;
+    right: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    pointer-events: none;
+    font-family: ui-monospace, monospace;
+    font-size: 0.76rem;
+    color: var(--muted);
+  }
+  .hud-pill {
+    background: rgba(15, 20, 28, 0.88);
+    border: 1px solid #2a364b;
+    padding: 6px 12px;
+    border-radius: 6px;
+  }
+  .history-tape {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    margin-top: 6px;
+    font-family: ui-monospace, monospace;
+    font-size: 0.78rem;
+  }
+  .tape-item {
+    background: #1d283a;
+    border: 1px solid #334766;
+    color: #7dd3fc;
+    padding: 2px 7px;
+    border-radius: 4px;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="brand">
+    <h1>ELECTROMECHANICAL RELAY LAB</h1>
+    <span class="badge" id="relayCountBadge">35 DPDT RELAYS</span>
+  </div>
+
+  <div class="toolbar">
+    <label style="font-size:0.8rem;color:var(--muted);">Machine Scale:</label>
+    <select id="modeSelect">
+      <option value="cpu35">Scale 4: "Relay-4" Complete 4-Bit Computer (35 Relays)</option>
+      <option value="alu16">Scale 3: 4-Bit ALU + Master-Slave Accumulator (16 Relays)</option>
+      <option value="adder8">Scale 2: 4-Bit Ripple-Carry Adder (8 Relays)</option>
+      <option value="adder2">Scale 1: 1-Bit DPDT Full Adder Cell (2 Relays)</option>
+    </select>
+
+    <button class="primary" id="runBtn">Run Clock</button>
+    <button id="stepBtn">Single Step (Pulse)</button>
+    <button id="resetBtn">Reset</button>
+
+    <div class="slider-group" title="Adjust clock speed (Hz)">
+      <span>Clock:</span>
+      <input type="range" id="clockSlider" min="0.5" max="8" step="0.5" value="2.0" />
+      <span id="clockVal">2.0 Hz</span>
+    </div>
+
+    <div class="slider-group" title="Mechanical relay armature travel delay (ms) — increase to hear distinct ripple cascades!">
+      <span>Relay Delay:</span>
+      <input type="range" id="delaySlider" min="8" max="90" step="2" value="28" />
+      <span id="delayVal">28 ms</span>
+    </div>
+
+    <button id="soundBtn" class="active">Sound: ON</button>
+  </div>
+</header>
+
+<main>
+  <aside>
+    <div class="card">
+      <h2 id="sideTitle">Relay-4 Computer (35 Relays)</h2>
+      <p id="sideDesc">
+        A complete, Turing-complete 4-bit accumulator computer built from 35 DPDT electromagnetic relays. Watch the clock pulse energize the instruction tree, ripple through the 4-bit adder, and clack into the Master-Slave registers!
+      </p>
+    </div>
+
+    <div class="card">
+      <h2>Live Indicator Lamps</h2>
+      <div class="led-strip" id="ledBank"></div>
+    </div>
+
+    <div class="card" id="interactiveCard">
+      <h2 id="interactiveHeader">Program Diode Matrix (8 Steps)</h2>
+      <div id="interactiveBody"></div>
+    </div>
+
+    <div class="card">
+      <h2>Accumulator Output Tape <button id="clearTapeBtn" style="padding:1px 6px;font-size:0.68rem;">Clear</button></h2>
+      <div class="history-tape" id="outputTape"></div>
+    </div>
+  </aside>
+
+  <div class="canvas-wrap">
+    <canvas id="simCanvas"></canvas>
+    <div class="hud-overlay">
+      <div class="hud-pill" id="hudStatus">Clock: IDLE | Total Relay Clacks: 0</div>
+      <div class="hud-pill">Tip: Click any toggle switch on the left or adjust Relay Delay to hear slow-motion ripple cascades!</div>
+    </div>
+  </div>
+</main>
+
+<script>
+// ============================================================================
+// 1. PROCEDURAL WEB AUDIO RELAY CLACK SYNTHESIZER
+// ============================================================================
+class RelaySoundEngine {
+  constructor() {
+    this.ctx = null;
+    this.enabled = true;
+    this.totalClacks = 0;
+  }
+
+  init() {
+    if (!this.ctx) {
+      const AudioCtx = window.AudioContext || window.webkitAudioContext;
+      this.ctx = new AudioCtx();
+    }
+    if (this.ctx && this.ctx.state === 'suspended') {
+      this.ctx.resume();
+    }
+  }
+
+  playClack(closing = true, pitchOffset = 0) {
+    this.totalClacks++;
+    if (!this.enabled) return;
+    this.init();
+    if (!this.ctx) return;
+
+    const now = this.ctx.currentTime;
+
+    const bufLen = Math.floor(this.ctx.sampleRate * 0.0045);
+    const buffer = this.ctx.createBuffer(1, bufLen, this.ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufLen; i++) {
+      const env = Math.pow(1 - i / bufLen, 2.2);
+      data[i] = (Math.random() * 2 - 1) * env;
+    }
+    const noise = this.ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = this.ctx.createBiquadFilter();
+    filter.type = 'bandpass';
+    filter.frequency.setValueAtTime((closing ? 2600 : 1750) + pitchOffset * 35, now);
+    filter.Q.setValueAtTime(3.2, now);
+
+    const gain = this.ctx.createGain();
+    gain.gain.setValueAtTime(closing ? 0.26 : 0.16, now);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + 0.0045);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.ctx.destination);
+    noise.start(now);
+
+    const osc = this.ctx.createOscillator();
+    const oscGain = this.ctx.createGain();
+    osc.type = 'triangle';
+    const baseFreq = (closing ? 520 : 340) + (pitchOffset % 7) * 18;
+    osc.frequency.setValueAtTime(baseFreq, now);
+    osc.frequency.exponentialRampToValueAtTime(110, now + 0.012);
+
+    oscGain.gain.setValueAtTime(closing ? 0.11 : 0.07, now);
+    oscGain.gain.exponentialRampToValueAtTime(0.001, now + 0.012);
+
+    osc.connect(oscGain);
+    oscGain.connect(this.ctx.destination);
+    osc.start(now);
+    osc.stop(now + 0.013);
+  }
+}
+
+const sound = new RelaySoundEngine();
+
+// ============================================================================
+// 2. PHYSICAL DPDT RELAY MODEL WITH PROPAGATION DELAY
+// ============================================================================
+class Relay {
+  constructor(id, label, group, x, y, pitchIdx = 0) {
+    this.id = id;
+    this.label = label;
+    this.group = group;
+    this.x = x;
+    this.y = y;
+    this.pitchIdx = pitchIdx;
+
+    this.coilEnergized = false;
+    this.closed = false;
+    this.armaturePos = 0.0;
+    this.timerMs = 0;
+    this.variance = 0.88 + ((pitchIdx * 37) % 25) / 100.0;
+    this.flashTimer = 0;
+  }
+
+  setCoil(energized, baseDelayMs) {
+    const target = !!energized;
+    if (target !== this.coilEnergized) {
+      this.coilEnergized = target;
+      if (this.coilEnergized !== this.closed) {
+        this.timerMs = baseDelayMs * this.variance;
+      } else {
+        this.timerMs = 0;
+      }
+    }
+  }
+
+  stepPhysics(dtMs) {
+    let snapped = false;
+    if (this.coilEnergized !== this.closed) {
+      this.timerMs -= dtMs;
+      if (this.timerMs <= 0) {
+        this.closed = this.coilEnergized;
+        this.timerMs = 0;
+        this.flashTimer = 90;
+        sound.playClack(this.closed, this.pitchIdx);
+        snapped = true;
+      }
+    }
+    const targetPos = this.closed ? 1.0 : 0.0;
+    this.armaturePos += (targetPos - this.armaturePos) * Math.min(1.0, dtMs * 0.045);
+    if (this.flashTimer > 0) this.flashTimer = Math.max(0, this.flashTimer - dtMs);
+    return snapped;
+  }
+}
+
+// ============================================================================
+// 3. SIMULATION ENGINE & 4 SELECTABLE RELAY MACHINES
+// ============================================================================
+const OPCODES = [
+  { code: 0, name: 'LDI',  desc: 'ACC = imm4' },
+  { code: 1, name: 'ADD',  desc: 'ACC = ACC + B (sets Carry)' },
+  { code: 2, name: 'ADDI', desc: 'ACC = ACC + imm4 (sets Carry)' },
+  { code: 3, name: 'TAB',  desc: 'B = ACC (copy ACC to B)' },
+  { code: 4, name: 'XCH',  desc: 'Swap ACC and B' },
+  { code: 5, name: 'JMP',  desc: 'PC = imm3' },
+  { code: 6, name: 'JNC',  desc: 'If Carry == 0, PC = imm3' },
+  { code: 7, name: 'HLT',  desc: 'Halt Clock' }
+];
+
+const PRESET_PROGRAMS = {
+  fib: {
+    name: 'Fibonacci Sequence (1, 1, 2, 3, 5, 8, 13)',
+    rom: [
+      { op: 0, imm: 1 },
+      { op: 3, imm: 0 },
+      { op: 1, imm: 0 },
+      { op: 4, imm: 0 },
+      { op: 6, imm: 2 },
+      { op: 7, imm: 0 },
+      { op: 0, imm: 0 },
+      { op: 0, imm: 0 }
+    ]
+  },
+  countdown: {
+    name: 'Countdown Loop (10 down to 0)',
+    rom: [
+      { op: 0, imm: 10 },
+      { op: 2, imm: 15 },
+      { op: 6, imm: 4 },
+      { op: 5, imm: 1 },
+      { op: 0, imm: 0 },
+      { op: 7, imm: 0 },
+      { op: 0, imm: 0 },
+      { op: 0, imm: 0 }
+    ]
+  },
+  mult3x4: {
+    name: 'Multiply 3 x 4 = 12 (Repeated Addition)',
+    rom: [
+      { op: 0, imm: 3 },
+      { op: 3, imm: 0 },
+      { op: 1, imm: 0 },
+      { op: 1, imm: 0 },
+      { op: 1, imm: 0 },
+      { op: 7, imm: 0 },
+      { op: 0, imm: 0 },
+      { op: 0, imm: 0 }
+    ]
+  },
+  pong: {
+    name: 'Bit Doubler (1, 2, 4, 8)',
+    rom: [
+      { op: 0, imm: 1 },
+      { op: 3, imm: 0 },
+      { op: 1, imm: 0 },
+      { op: 6, imm: 1 },
+      { op: 5, imm: 0 },
+      { op: 0, imm: 0 },
+      { op: 0, imm: 0 },
+      { op: 0, imm: 0 }
+    ]
+  }
+};
+
+class Simulator {
+  constructor() {
+    this.mode = 'cpu35';
+    this.relays = [];
+    this.relayMap = {};
+    this.baseDelayMs = 28;
+    this.clockHz = 2.0;
+    this.running = false;
+    this.clockPhase = 0;
+    this.phaseTimerMs = 0;
+
+    this.inA = 5;
+    this.inB = 7;
+    this.inCin = 0;
+
+    this.rom = JSON.parse(JSON.stringify(PRESET_PROGRAMS.fib.rom));
+    this.tape = [];
+    this.lastRecordedAcc = null;
+
+    this.buildMode('cpu35');
+  }
+
+  addRelay(id, label, group, x, y) {
+    const r = new Relay(id, label, group, x, y, this.relays.length);
+    this.relays.push(r);
+    this.relayMap[id] = r;
+    return r;
+  }
+
+  R(id) {
+    return this.relayMap[id] ? this.relayMap[id].closed : false;
+  }
+
+  setCoil(id, state) {
+    if (this.relayMap[id]) {
+      this.relayMap[id].setCoil(state, this.baseDelayMs);
+    }
+  }
+
+  buildMode(mode) {
+    this.mode = mode;
+    this.relays = [];
+    this.relayMap = {};
+    this.running = false;
+    this.clockPhase = 0;
+    this.tape = [];
+    document.getElementById('runBtn').textContent = 'Run Clock';
+    document.getElementById('runBtn').classList.remove('running');
+
+    if (mode === 'adder2') {
+      this.addRelay('XOR1', 'K1: Input B Relay (XOR1)', '1-Bit Full Adder (2 DPDT Relays)', 0.36, 0.48);
+      this.addRelay('XOR2', 'K2: Carry/Sum Relay (XOR2)', '1-Bit Full Adder (2 DPDT Relays)', 0.64, 0.48);
+    } else if (mode === 'adder8') {
+      for (let b = 0; b < 4; b++) {
+        const x = 0.20 + b * 0.20;
+        this.addRelay(`FA${b}_K1`, `Bit ${b}: B-Relay (K${b*2+1})`, `Bit ${b} Full Adder`, x, 0.36);
+        this.addRelay(`FA${b}_K2`, `Bit ${b}: Sum/Carry (K${b*2+2})`, `Bit ${b} Full Adder`, x, 0.66);
+      }
+    } else if (mode === 'alu16') {
+      for (let b = 0; b < 4; b++) {
+        const x = 0.20 + b * 0.20;
+        this.addRelay(`FA${b}_K1`, `Adder B${b} (K1)`, '4-Bit Ripple Adder (8 Relays)', x - 0.04, 0.30);
+        this.addRelay(`FA${b}_K2`, `Adder C${b} (K2)`, '4-Bit Ripple Adder (8 Relays)', x + 0.04, 0.30);
+        this.addRelay(`ACC_M${b}`, `ACC${b} Master`, 'Accumulator Master-Slave (8 Relays)', x - 0.04, 0.68);
+        this.addRelay(`ACC_S${b}`, `ACC${b} Slave`,  'Accumulator Master-Slave (8 Relays)', x + 0.04, 0.68);
+      }
+    } else if (mode === 'cpu35') {
+      for (let b = 0; b < 3; b++) {
+        const x = 0.11 + b * 0.11;
+        this.addRelay(`PC_M${b}`, `PC${b} Master`, 'Program Counter (6 Relays)', x, 0.17);
+        this.addRelay(`PC_S${b}`, `PC${b} Slave`,  'Program Counter (6 Relays)', x + 0.048, 0.17);
+      }
+      for (let d = 0; d < 7; d++) {
+        const x = 0.47 + d * 0.072;
+        this.addRelay(`DEC_${d}`, `Tree K${d+1}`, '1-of-8 Decoder Tree (7 Relays)', x, 0.17);
+      }
+      for (let b = 0; b < 4; b++) {
+        const x = 0.12 + b * 0.15;
+        this.addRelay(`FA${b}_K1`, `Add${b} K1`, '4-Bit Ripple Adder (8 Relays)', x, 0.47);
+        this.addRelay(`FA${b}_K2`, `Add${b} K2`, '4-Bit Ripple Adder (8 Relays)', x + 0.058, 0.47);
+      }
+      this.addRelay('CY_M', 'Carry M', 'Carry Latch (2)', 0.78, 0.47);
+      this.addRelay('CY_S', 'Carry S', 'Carry Latch (2)', 0.85, 0.47);
+
+      for (let b = 0; b < 4; b++) {
+        const x = 0.12 + b * 0.135;
+        this.addRelay(`ACC_M${b}`, `ACC${b} M`, 'Accumulator Register (8 Relays)', x, 0.78);
+        this.addRelay(`ACC_S${b}`, `ACC${b} S`, 'Accumulator Register (8 Relays)', x + 0.052, 0.78);
+      }
+      for (let b = 0; b < 4; b++) {
+        const x = 0.68 + b * 0.068;
+        this.addRelay(`REG_B${b}`, `Reg B${b}`, 'B Register (4 Relays)', x, 0.78);
+      }
+    }
+
+    document.getElementById('relayCountBadge').textContent = `${this.relays.length} DPDT RELAYS`;
+    this.evaluateCombinationalNetwork();
+    buildSidebarUI();
+  }
+
+  getACC() {
+    let v = 0;
+    for (let b = 0; b < 4; b++) if (this.R(`ACC_S${b}`)) v |= (1 << b);
+    return v;
+  }
+
+  getB() {
+    let v = 0;
+    for (let b = 0; b < 4; b++) if (this.R(`REG_B${b}`)) v |= (1 << b);
+    return v;
+  }
+
+  getPC() {
+    let v = 0;
+    for (let b = 0; b < 3; b++) if (this.R(`PC_S${b}`)) v |= (1 << b);
+    return v;
+  }
+
+  evalFullAdderBit(aBit, bBit, cinBit, k1Id, k2Id) {
+    this.setCoil(k1Id, bBit);
+    const k1Closed = this.R(k1Id);
+    const prop = aBit ? !k1Closed : k1Closed;
+    this.setCoil(k2Id, prop);
+    const k2Closed = this.R(k2Id);
+    const sum = cinBit ? !k2Closed : k2Closed;
+    const cout = k2Closed ? cinBit : aBit;
+    return { sum, cout };
+  }
+
+  evaluateCombinationalNetwork() {
+    if (this.mode === 'adder2') {
+      const a = (this.inA & 1) !== 0;
+      const b = (this.inB & 1) !== 0;
+      const cin = (this.inCin & 1) !== 0;
+      this.evalFullAdderBit(a, b, cin, 'XOR1', 'XOR2');
+    } else if (this.mode === 'adder8') {
+      let carry = (this.inCin & 1) !== 0;
+      for (let b = 0; b < 4; b++) {
+        const aBit = ((this.inA >> b) & 1) !== 0;
+        const bBit = ((this.inB >> b) & 1) !== 0;
+        const res = this.evalFullAdderBit(aBit, bBit, carry, `FA${b}_K1`, `FA${b}_K2`);
+        carry = res.cout;
+      }
+    } else if (this.mode === 'alu16') {
+      const sub = (this.inCin & 1) !== 0;
+      let carry = sub;
+      const sums = [];
+      for (let b = 0; b < 4; b++) {
+        const aBit = this.R(`ACC_S${b}`);
+        const rawB = ((this.inB >> b) & 1) !== 0;
+        const bBit = sub ? !rawB : rawB;
+        const res = this.evalFullAdderBit(aBit, bBit, carry, `FA${b}_K1`, `FA${b}_K2`);
+        sums.push(res.sum);
+        carry = res.cout;
+      }
+      const clkHigh = (this.clockPhase === 1);
+      for (let b = 0; b < 4; b++) {
+        const mState = clkHigh ? sums[b] : this.R(`ACC_M${b}`);
+        this.setCoil(`ACC_M${b}`, mState);
+        const sState = !clkHigh ? this.R(`ACC_M${b}`) : this.R(`ACC_S${b}`);
+        this.setCoil(`ACC_S${b}`, sState);
+      }
+    } else if (this.mode === 'cpu35') {
+      const pc = this.getPC();
+      const p0 = this.R('PC_S0'), p1 = this.R('PC_S1'), p2 = this.R('PC_S2');
+      this.setCoil('DEC_0', p2);
+      this.setCoil('DEC_1', !p2 && p1);
+      this.setCoil('DEC_2', p2 && p1);
+      this.setCoil('DEC_3', !p2 && !p1 && p0);
+      this.setCoil('DEC_4', !p2 && p1 && p0);
+      this.setCoil('DEC_5', p2 && !p1 && p0);
+      this.setCoil('DEC_6', p2 && p1 && p0);
+
+      const instr = this.rom[pc] || { op: 0, imm: 0 };
+      const op = instr.op;
+      const imm = instr.imm & 0xF;
+
+      let carry = false;
+      const sums = [];
+      for (let b = 0; b < 4; b++) {
+        const accBit = this.R(`ACC_S${b}`);
+        const regBBit = this.R(`REG_B${b}`);
+        const immBit = ((imm >> b) & 1) !== 0;
+
+        const aIn = (op === 0) ? false : accBit;
+        const bIn = (op === 1) ? regBBit : ((op === 0 || op === 2) ? immBit : false);
+        const res = this.evalFullAdderBit(aIn, bIn, carry, `FA${b}_K1`, `FA${b}_K2`);
+        sums.push(res.sum);
+        carry = res.cout;
+      }
+
+      const clkHigh = (this.clockPhase === 1);
+
+      const updateCy = (op === 1 || op === 2);
+      const cyNext = updateCy ? carry : this.R('CY_S');
+      this.setCoil('CY_M', clkHigh ? cyNext : this.R('CY_M'));
+      this.setCoil('CY_S', !clkHigh ? this.R('CY_M') : this.R('CY_S'));
+
+      for (let b = 0; b < 4; b++) {
+        let nextAcc = this.R(`ACC_S${b}`);
+        if (op === 0 || op === 1 || op === 2) nextAcc = sums[b];
+        else if (op === 4) nextAcc = this.R(`REG_B${b}`);
+
+        this.setCoil(`ACC_M${b}`, clkHigh ? nextAcc : this.R(`ACC_M${b}`));
+        this.setCoil(`ACC_S${b}`, !clkHigh ? this.R(`ACC_M${b}`) : this.R(`ACC_S${b}`));
+
+        let nextB = this.R(`REG_B${b}`);
+        if (clkHigh && (op === 3 || op === 4)) {
+          nextB = this.R(`ACC_S${b}`);
+        }
+        this.setCoil(`REG_B${b}`, nextB);
+      }
+
+      const cyFlag = this.R('CY_S');
+      let nextPC = (pc + 1) & 7;
+      if (op === 5) nextPC = imm & 7;
+      else if (op === 6 && !cyFlag) nextPC = imm & 7;
+      else if (op === 7) nextPC = pc;
+
+      for (let b = 0; b < 3; b++) {
+        const pcBit = ((nextPC >> b) & 1) !== 0;
+        this.setCoil(`PC_M${b}`, clkHigh ? pcBit : this.R(`PC_M${b}`));
+        this.setCoil(`PC_S${b}`, !clkHigh ? this.R(`PC_M${b}`) : this.R(`PC_S${b}`));
+      }
+    }
+  }
+
+  triggerSingleClockPulse() {
+    if (this.clockPhase === 0) {
+      this.clockPhase = 1;
+      this.phaseTimerMs = Math.max(180, this.baseDelayMs * 6.5);
+    }
+  }
+
+  resetState() {
+    this.running = false;
+    this.clockPhase = 0;
+    this.tape = [];
+    this.lastRecordedAcc = null;
+    document.getElementById('runBtn').textContent = 'Run Clock';
+    document.getElementById('runBtn').classList.remove('running');
+    for (const r of this.relays) {
+      r.coilEnergized = false;
+      r.closed = false;
+      r.armaturePos = 0;
+      r.timerMs = 0;
+    }
+    this.evaluateCombinationalNetwork();
+    updateLEDsAndTape();
+  }
+
+  tick(dtMs) {
+    if (this.mode === 'alu16' || this.mode === 'cpu35') {
+      const halfPeriodMs = Math.max(170, 500 / this.clockHz);
+      if (this.clockPhase === 1) {
+        this.phaseTimerMs -= dtMs;
+        if (this.phaseTimerMs <= 0) {
+          this.clockPhase = 2;
+          this.phaseTimerMs = halfPeriodMs;
+        }
+      } else if (this.clockPhase === 2) {
+        this.phaseTimerMs -= dtMs;
+        if (this.phaseTimerMs <= 0) {
+          this.clockPhase = 0;
+          const acc = this.getACC();
+          if (acc !== this.lastRecordedAcc) {
+            this.tape.push(acc);
+            if (this.tape.length > 18) this.tape.shift();
+            this.lastRecordedAcc = acc;
+          }
+          if (this.mode === 'cpu35') {
+            const pc = this.getPC();
+            if (this.rom[pc] && this.rom[pc].op === 7 && this.running) {
+              this.running = false;
+              document.getElementById('runBtn').textContent = 'Run Clock';
+              document.getElementById('runBtn').classList.remove('running');
+            }
+          }
+          if (this.running) {
+            this.clockPhase = 1;
+            this.phaseTimerMs = halfPeriodMs;
+          }
+        }
+      } else if (this.running && this.clockPhase === 0) {
+        this.clockPhase = 1;
+        this.phaseTimerMs = halfPeriodMs;
+      }
+    }
+
+    this.evaluateCombinationalNetwork();
+    let anySnapped = false;
+    for (const r of this.relays) {
+      if (r.stepPhysics(dtMs)) anySnapped = true;
+    }
+    if (anySnapped) {
+      this.evaluateCombinationalNetwork();
+    }
+  }
+}
+
+const sim = new Simulator();
+
+// ============================================================================
+// 4. SIDEBAR UI & INTERACTIVE SWITCHES / ROM MATRIX
+// ============================================================================
+function bitsHTML(val, bits, green = false) {
+  let h = '<div class="dots">';
+  for (let b = bits - 1; b >= 0; b--) {
+    const on = ((val >> b) & 1) !== 0;
+    h += `<span class="dot ${green ? 'green' : ''} ${on ? 'on' : ''}"></span>`;
+  }
+  h += '</div>';
+  return h;
+}
+
+function buildSidebarUI() {
+  const title = document.getElementById('sideTitle');
+  const desc = document.getElementById('sideDesc');
+  const header = document.getElementById('interactiveHeader');
+  const body = document.getElementById('interactiveBody');
+
+  if (sim.mode === 'adder2') {
+    title.textContent = '1-Bit DPDT Full Adder (2 Relays)';
+    desc.textContent = 'A single 1-bit Full Adder (A + B + Cin -> Sum, Cout) built with ONLY 2 DPDT relays! Toggle A, B, and Cin below to watch K1 XOR the inputs and K2 steer the Carry.';
+    header.textContent = 'Toggle Input Switches';
+    body.innerHTML = `
+      <div class="switch-row">
+        <button class="toggle-btn ${sim.inA & 1 ? 'active' : ''}" onclick="toggleBit('A', 0)">Switch A = ${sim.inA & 1}</button>
+        <button class="toggle-btn ${sim.inB & 1 ? 'active' : ''}" onclick="toggleBit('B', 0)">Switch B = ${sim.inB & 1}</button>
+        <button class="toggle-btn ${sim.inCin & 1 ? 'active' : ''}" onclick="toggleBit('C', 0)">Carry In = ${sim.inCin & 1}</button>
+      </div>
+    `;
+  } else if (sim.mode === 'adder8') {
+    title.textContent = '4-Bit Ripple-Carry Adder (8 Relays)';
+    desc.textContent = 'Four 2-relay Full Adder cells chained in series. Set A=15 (1111) and B=0, then toggle Carry In=1 with Relay Delay at ~50ms to hear and see the carry wave clack from Bit 0 to Bit 3!';
+    header.textContent = '4-Bit Input Toggle Switches';
+    body.innerHTML = render4BitSwitches(true);
+  } else if (sim.mode === 'alu16') {
+    title.textContent = '4-Bit ALU + Accumulator (16 Relays)';
+    desc.textContent = 'Adds or subtracts Input B into a 4-bit Master-Slave Relay Accumulator (8 relays for ALU + 8 relays for ACC). Click "Single Step" or "Run Clock" to accumulate!';
+    header.textContent = 'Operand B & Subtract Control';
+    body.innerHTML = render4BitSwitches(false);
+  } else if (sim.mode === 'cpu35') {
+    title.textContent = 'Relay-4 Complete Computer (35 Relays)';
+    desc.textContent = 'Full 35-relay 4-bit CPU: 6 relays for 3-bit PC, 7 relays for 1-of-8 instruction tree, 8 relays for 4-bit Adder, 2 relays for Carry flag, 8 relays for ACC, and 4 relays for Register B.';
+    header.textContent = 'Program ROM Matrix';
+    let html = `
+      <div style="margin-bottom:8px;">
+        <select id="presetSelect" style="width:100%;" onchange="loadPreset(this.value)">
+          <option value="fib">Preset: Fibonacci (1, 1, 2, 3, 5, 8, 13)</option>
+          <option value="countdown">Preset: Countdown (10 down to 0)</option>
+          <option value="mult3x4">Preset: Multiply 3 x 4 = 12</option>
+          <option value="pong">Preset: Bit Doubler (1, 2, 4, 8)</option>
+        </select>
+      </div>
+      <table class="rom-table">
+        <thead><tr><th>Step</th><th>Opcode</th><th>Imm</th><th>Meaning</th></tr></thead>
+        <tbody>
+    `;
+    for (let i = 0; i < 8; i++) {
+      const row = sim.rom[i];
+      const opMeta = OPCODES[row.op];
+      html += `<tr id="romRow${i}">
+        <td>#${i}</td>
+        <td>
+          <select onchange="updateRomOp(${i}, this.value)">
+            ${OPCODES.map(o => `<option value="${o.code}" ${o.code === row.op ? 'selected' : ''}>${o.name}</option>`).join('')}
+          </select>
+        </td>
+        <td>
+          <select onchange="updateRomImm(${i}, this.value)">
+            ${Array.from({length: 16}, (_, v) => `<option value="${v}" ${v === row.imm ? 'selected' : ''}>${v}</option>`).join('')}
+          </select>
+        </td>
+        <td style="color:var(--muted);font-size:0.7rem;" id="romDesc${i}">${opMeta.desc}</td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    body.innerHTML = html;
+  }
+  updateLEDsAndTape();
+}
+
+function render4BitSwitches(includeA) {
+  let html = '';
+  if (includeA) {
+    html += `<div style="font-size:0.75rem;color:var(--muted);margin-top:4px;">Input A (${sim.inA}):</div><div class="switch-row">`;
+    for (let b = 3; b >= 0; b--) {
+      const on = (sim.inA >> b) & 1;
+      html += `<button class="toggle-btn ${on ? 'active' : ''}" onclick="toggleBit('A', ${b})">A${b}:${on}</button>`;
+    }
+    html += `</div>`;
+  }
+  html += `<div style="font-size:0.75rem;color:var(--muted);margin-top:8px;">Input B (${sim.inB}):</div><div class="switch-row">`;
+  for (let b = 3; b >= 0; b--) {
+    const on = (sim.inB >> b) & 1;
+    html += `<button class="toggle-btn ${on ? 'active' : ''}" onclick="toggleBit('B', ${b})">B${b}:${on}</button>`;
+  }
+  html += `</div><div class="switch-row">
+    <button class="toggle-btn ${sim.inCin & 1 ? 'active' : ''}" onclick="toggleBit('C', 0)">
+      ${includeA ? `Carry In (Cin = ${sim.inCin & 1})` : `Mode: ${sim.inCin & 1 ? 'SUBTRACT (ACC - B)' : 'ADD (ACC + B)'}`}
+    </button>
+  </div>`;
+  return html;
+}
+
+window.toggleBit = function(which, bit) {
+  sound.init();
+  if (which === 'A') sim.inA ^= (1 << bit);
+  if (which === 'B') sim.inB ^= (1 << bit);
+  if (which === 'C') sim.inCin ^= 1;
+  buildSidebarUI();
+};
+
+window.loadPreset = function(key) {
+  if (PRESET_PROGRAMS[key]) {
+    sim.rom = JSON.parse(JSON.stringify(PRESET_PROGRAMS[key].rom));
+    sim.resetState();
+    buildSidebarUI();
+  }
+};
+
+window.updateRomOp = function(idx, val) {
+  sim.rom[idx].op = parseInt(val, 10);
+  document.getElementById(`romDesc${idx}`).textContent = OPCODES[sim.rom[idx].op].desc;
+};
+
+window.updateRomImm = function(idx, val) {
+  sim.rom[idx].imm = parseInt(val, 10);
+};
+
+function updateLEDsAndTape() {
+  const bank = document.getElementById('ledBank');
+  if (sim.mode === 'adder2') {
+    const a = (sim.inA & 1) !== 0;
+    const b = (sim.inB & 1) !== 0;
+    const cin = (sim.inCin & 1) !== 0;
+    const k2 = sim.R('XOR2');
+    const sum = (cin ? !k2 : k2) ? 1 : 0;
+    const cout = (k2 ? cin : a) ? 1 : 0;
+    bank.innerHTML = `
+      <div class="led-box"><span class="lbl">SUM</span><span class="val">${sum}</span>${bitsHTML(sum, 1, true)}</div>
+      <div class="led-box"><span class="lbl">CARRY</span><span class="val">${cout}</span>${bitsHTML(cout, 1, false)}</div>
+      <div class="led-box"><span class="lbl">TOTAL</span><span class="val">${(cout << 1) | sum}</span>${bitsHTML((cout << 1) | sum, 2, true)}</div>
+    `;
+  } else if (sim.mode === 'adder8') {
+    let carry = (sim.inCin & 1) !== 0;
+    let sum4 = 0;
+    for (let b = 0; b < 4; b++) {
+      const aBit = ((sim.inA >> b) & 1) !== 0;
+      const k2 = sim.R(`FA${b}_K2`);
+      const s = carry ? !k2 : k2;
+      if (s) sum4 |= (1 << b);
+      carry = k2 ? carry : aBit;
+    }
+    bank.innerHTML = `
+      <div class="led-box"><span class="lbl">A</span><span class="val">${sim.inA}</span>${bitsHTML(sim.inA, 4)}</div>
+      <div class="led-box"><span class="lbl">B</span><span class="val">${sim.inB}</span>${bitsHTML(sim.inB, 4)}</div>
+      <div class="led-box"><span class="lbl">SUM</span><span class="val">${sum4}</span>${bitsHTML(sum4, 4, true)}</div>
+      <div class="led-box"><span class="lbl">COUT</span><span class="val">${carry ? 1 : 0}</span>${bitsHTML(carry ? 1 : 0, 1)}</div>
+    `;
+  } else if (sim.mode === 'alu16') {
+    const acc = sim.getACC();
+    bank.innerHTML = `
+      <div class="led-box"><span class="lbl">ACC</span><span class="val">${acc}</span>${bitsHTML(acc, 4, true)}</div>
+      <div class="led-box"><span class="lbl">IN B</span><span class="val">${sim.inB}</span>${bitsHTML(sim.inB, 4)}</div>
+      <div class="led-box"><span class="lbl">CLK</span><span class="val">${sim.clockPhase === 1 ? 'HI' : 'LO'}</span>${bitsHTML(sim.clockPhase === 1 ? 1 : 0, 1)}</div>
+    `;
+  } else if (sim.mode === 'cpu35') {
+    const pc = sim.getPC();
+    const acc = sim.getACC();
+    const regB = sim.getB();
+    const cy = sim.R('CY_S') ? 1 : 0;
+    bank.innerHTML = `
+      <div class="led-box"><span class="lbl">PC</span><span class="val">#${pc}</span>${bitsHTML(pc, 3)}</div>
+      <div class="led-box"><span class="lbl">ACC</span><span class="val">${acc}</span>${bitsHTML(acc, 4, true)}</div>
+      <div class="led-box"><span class="lbl">REG B</span><span class="val">${regB}</span>${bitsHTML(regB, 4)}</div>
+      <div class="led-box"><span class="lbl">CARRY</span><span class="val">${cy}</span>${bitsHTML(cy, 1)}</div>
+    `;
+    for (let i = 0; i < 8; i++) {
+      const tr = document.getElementById(`romRow${i}`);
+      if (tr) tr.classList.toggle('active-row', i === pc);
+    }
+  }
+
+  const tapeEl = document.getElementById('outputTape');
+  tapeEl.innerHTML = sim.tape.length
+    ? sim.tape.map(v => `<span class="tape-item">${v} <small style="opacity:0.65">(${v.toString(2).padStart(4,'0')})</small></span>`).join('')
+    : '<span style="color:var(--muted);font-size:0.74rem;">Step or Run the clock to record outputs...</span>';
+
+  const clkName = sim.clockPhase === 1 ? 'PULSE HIGH (Master Latch)' : (sim.clockPhase === 2 ? 'PULSE LOW (Slave Transfer)' : 'IDLE');
+  document.getElementById('hudStatus').textContent =
+    `Clock: ${clkName} | Active Relays Energized: ${sim.relays.filter(r => r.closed).length}/${sim.relays.length} | Total Relay Clacks: ${sound.totalClacks}`;
+}
+
+// ============================================================================
+// 5. VISUAL CANVAS RENDERER
+// ============================================================================
+const canvas = document.getElementById('simCanvas');
+const ctx = canvas.getContext('2d');
+
+function resizeCanvas() {
+  const rect = canvas.parentElement.getBoundingClientRect();
+  canvas.width = rect.width * window.devicePixelRatio;
+  canvas.height = rect.height * window.devicePixelRatio;
+  ctx.setTransform(window.devicePixelRatio, 0, 0, window.devicePixelRatio, 0, 0);
+}
+window.addEventListener('resize', resizeCanvas);
+resizeCanvas();
+
+function drawRelay(r, W, H, scale) {
+  const cx = r.x * W;
+  const cy = r.y * H;
+  const rw = 58 * scale;
+  const rh = 96 * scale;
+
+  ctx.save();
+  ctx.translate(cx, cy);
+
+  ctx.fillStyle = r.closed ? '#1b2434' : '#121824';
+  ctx.strokeStyle = r.flashTimer > 0 ? '#fde047' : (r.closed ? '#f59e0b' : '#2e3d56');
+  ctx.lineWidth = r.flashTimer > 0 ? 2.2 : 1.3;
+  ctx.beginPath();
+  ctx.roundRect(-rw / 2, -rh / 2, rw, rh, 6 * scale);
+  ctx.fill();
+  ctx.stroke();
+
+  const coilW = 20 * scale;
+  const coilH = 44 * scale;
+  const coilX = -rw / 2 + 7 * scale;
+  const coilY = -coilH / 2 + 4 * scale;
+
+  const grad = ctx.createLinearGradient(coilX, coilY, coilX + coilW, coilY);
+  if (r.coilEnergized) {
+    grad.addColorStop(0, '#ea580c');
+    grad.addColorStop(0.5, '#fb923c');
+    grad.addColorStop(1, '#c2410c');
+  } else {
+    grad.addColorStop(0, '#5c341d');
+    grad.addColorStop(0.5, '#854d2b');
+    grad.addColorStop(1, '#472816');
+  }
+  ctx.fillStyle = grad;
+  ctx.fillRect(coilX, coilY, coilW, coilH);
+
+  ctx.strokeStyle = r.coilEnergized ? 'rgba(255,237,213,0.45)' : 'rgba(20,15,10,0.45)';
+  ctx.lineWidth = 1;
+  for (let y = coilY + 4 * scale; y < coilY + coilH - 2 * scale; y += 4 * scale) {
+    ctx.beginPath();
+    ctx.moveTo(coilX, y);
+    ctx.lineTo(coilX + coilW, y);
+    ctx.stroke();
+  }
+
+  if (r.coilEnergized) {
+    ctx.fillStyle = 'rgba(251, 146, 60, 0.16)';
+    ctx.beginPath();
+    ctx.arc(coilX + coilW / 2, coilY + coilH / 2, 18 * scale, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  const studX = rw / 2 - 12 * scale;
+  const ncY = -16 * scale;
+  const noY = 12 * scale;
+  const pivotY = 28 * scale;
+
+  ctx.fillStyle = !r.closed ? '#38bdf8' : '#475569';
+  ctx.beginPath();
+  ctx.arc(studX, ncY, 3.2 * scale, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = r.closed ? '#facc15' : '#475569';
+  ctx.beginPath();
+  ctx.arc(studX, noY, 3.2 * scale, 0, Math.PI * 2);
+  ctx.fill();
+
+  const tipY = ncY + (noY - ncY) * r.armaturePos;
+  ctx.strokeStyle = '#eab308';
+  ctx.lineWidth = 2.6 * scale;
+  ctx.beginPath();
+  ctx.moveTo(studX - 10 * scale, pivotY);
+  ctx.lineTo(studX - 2 * scale, tipY);
+  ctx.stroke();
+
+  if (r.flashTimer > 0) {
+    ctx.fillStyle = '#fef08a';
+    ctx.beginPath();
+    ctx.arc(studX, tipY, 5.5 * scale, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  ctx.fillStyle = r.closed ? '#ff3b30' : '#331818';
+  ctx.beginPath();
+  ctx.arc(0, -rh / 2 + 9 * scale, 3.6 * scale, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.fillStyle = '#cbd5e1';
+  ctx.font = `600 ${Math.max(9, Math.round(10.5 * scale))}px ui-monospace, monospace`;
+  ctx.textAlign = 'center';
+  ctx.fillText(r.label, 0, rh / 2 + 13 * scale);
+
+  ctx.restore();
+}
+
+function renderScene() {
+  const W = canvas.width / window.devicePixelRatio;
+  const H = canvas.height / window.devicePixelRatio;
+  ctx.clearRect(0, 0, W, H);
+
+  ctx.strokeStyle = 'rgba(51, 65, 85, 0.22)';
+  ctx.lineWidth = 1;
+  for (let x = 0; x < W; x += 36) {
+    ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke();
+  }
+  for (let y = 0; y < H; y += 36) {
+    ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+  }
+
+  const groups = {};
+  for (const r of sim.relays) {
+    if (!groups[r.group]) {
+      groups[r.group] = { minX: r.x, maxX: r.x, minY: r.y, maxY: r.y };
+    } else {
+      groups[r.group].minX = Math.min(groups[r.group].minX, r.x);
+      groups[r.group].maxX = Math.max(groups[r.group].maxX, r.x);
+      groups[r.group].minY = Math.min(groups[r.group].minY, r.y);
+      groups[r.group].maxY = Math.max(groups[r.group].maxY, r.y);
+    }
+  }
+
+  const scale = sim.mode === 'cpu35' ? 0.78 : (sim.mode === 'alu16' ? 0.92 : 1.15);
+  const padX = 48 * scale;
+  const padY = 66 * scale;
+
+  for (const [gName, box] of Object.entries(groups)) {
+    const x1 = box.minX * W - padX;
+    const y1 = box.minY * H - padY;
+    const x2 = box.maxX * W + padX;
+    const y2 = box.maxY * H + padY;
+
+    ctx.fillStyle = 'rgba(17, 24, 39, 0.55)';
+    ctx.strokeStyle = '#29384f';
+    ctx.lineWidth = 1.2;
+    ctx.beginPath();
+    ctx.roundRect(x1, y1, x2 - x1, y2 - y1, 10);
+    ctx.fill();
+    ctx.stroke();
+
+    ctx.fillStyle = '#e5b84b';
+    ctx.font = '700 11px system-ui, sans-serif';
+    ctx.textAlign = 'left';
+    ctx.fillText(gName.toUpperCase(), x1 + 10, y1 + 16);
+  }
+
+  for (let i = 0; i < sim.relays.length - 1; i++) {
+    const r1 = sim.relays[i];
+    const r2 = sim.relays[i + 1];
+    if (r1.group === r2.group) {
+      ctx.strokeStyle = (r1.closed || r2.coilEnergized) ? 'rgba(251, 146, 60, 0.65)' : 'rgba(71, 85, 105, 0.35)';
+      ctx.lineWidth = (r1.closed || r2.coilEnergized) ? 2.2 : 1.2;
+      ctx.beginPath();
+      ctx.moveTo(r1.x * W, r1.y * H);
+      ctx.lineTo(r2.x * W, r2.y * H);
+      ctx.stroke();
+    }
+  }
+
+  for (const r of sim.relays) {
+    drawRelay(r, W, H, scale);
+  }
+}
+
+// ============================================================================
+// 6. MAIN ANIMATION LOOP & EVENT LISTENERS
+// ============================================================================
+let lastTime = performance.now();
+function loop(now) {
+  const dt = Math.min(40, now - lastTime);
+  lastTime = now;
+
+  sim.tick(dt);
+  updateLEDsAndTape();
+  renderScene();
+  requestAnimationFrame(loop);
+}
+requestAnimationFrame(loop);
+
+document.getElementById('modeSelect').addEventListener('change', (e) => {
+  sound.init();
+  sim.buildMode(e.target.value);
+});
+
+document.getElementById('runBtn').addEventListener('click', () => {
+  sound.init();
+  if (sim.mode === 'adder2' || sim.mode === 'adder8') {
+    sim.inA = (sim.inA + 1) & 15;
+    buildSidebarUI();
+    return;
+  }
+  sim.running = !sim.running;
+  const btn = document.getElementById('runBtn');
+  btn.textContent = sim.running ? 'Pause Clock' : 'Run Clock';
+  btn.classList.toggle('running', sim.running);
+});
+
+document.getElementById('stepBtn').addEventListener('click', () => {
+  sound.init();
+  if (sim.mode === 'adder2' || sim.mode === 'adder8') {
+    sim.inA = (sim.inA + 1) & 15;
+    buildSidebarUI();
+  } else {
+    sim.running = false;
+    document.getElementById('runBtn').textContent = 'Run Clock';
+    document.getElementById('runBtn').classList.remove('running');
+    sim.triggerSingleClockPulse();
+  }
+});
+
+document.getElementById('resetBtn').addEventListener('click', () => {
+  sound.init();
+  sim.resetState();
+});
+
+document.getElementById('clockSlider').addEventListener('input', (e) => {
+  sim.clockHz = parseFloat(e.target.value);
+  document.getElementById('clockVal').textContent = `${sim.clockHz.toFixed(1)} Hz`;
+});
+
+document.getElementById('delaySlider').addEventListener('input', (e) => {
+  sim.baseDelayMs = parseInt(e.target.value, 10);
+  document.getElementById('delayVal').textContent = `${sim.baseDelayMs} ms`;
+});
+
+document.getElementById('soundBtn').addEventListener('click', (e) => {
+  sound.init();
+  sound.enabled = !sound.enabled;
+  e.target.textContent = `Sound: ${sound.enabled ? 'ON' : 'OFF'}`;
+  e.target.classList.toggle('active', sound.enabled);
+});
+
+document.getElementById('clearTapeBtn').addEventListener('click', () => {
+  sim.tape = [];
+  sim.lastRecordedAcc = null;
+  updateLEDsAndTape();
+});
+</script>
+</body>
+</html>
