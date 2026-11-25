@@ -1,0 +1,6 @@
+*.elf
+*.bin
+*.hex
+*.dis
+*.vvp
+*.vcd
