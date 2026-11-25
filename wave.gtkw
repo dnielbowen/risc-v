@@ -1,0 +1,47 @@
+[*]
+[*] GTKWave Analyzer Layout for RV32I Single-Cycle CPU
+[*]
+[timestart] 0
+[size] 1400 800
+[pos] -1 -1
+*-14.000000 35 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1
+[treeopen] tb_rv32i.
+@28
+tb_rv32i.clk
+tb_rv32i.rst
+tb_rv32i.halted
+@22
+tb_rv32i.pc[31:0]
+tb_rv32i.instr[31:0]
+tb_rv32i.uut.next_pc[31:0]
+@200
+-Decode & Register File
+@22
+tb_rv32i.uut.opcode[6:0]
+tb_rv32i.uut.rd[4:0]
+tb_rv32i.uut.rs1[4:0]
+tb_rv32i.uut.rs1_val[31:0]
+tb_rv32i.uut.rs2[4:0]
+tb_rv32i.uut.rs2_val[31:0]
+@28
+tb_rv32i.uut.reg_we
+@22
+tb_rv32i.uut.wb_data[31:0]
+@200
+-ALU & Branches
+@22
+tb_rv32i.uut.alu_a[31:0]
+tb_rv32i.uut.alu_b[31:0]
+tb_rv32i.uut.alu_out[31:0]
+@28
+tb_rv32i.uut.branch_taken
+@200
+-Data Memory / MMIO Bus
+@22
+tb_rv32i.dmem_addr[31:0]
+tb_rv32i.dmem_wdata[31:0]
+tb_rv32i.dmem_wstrb[3:0]
+@28
+tb_rv32i.dmem_re
+@22
+tb_rv32i.dmem_rdata[31:0]

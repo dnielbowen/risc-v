@@ -27,5 +27,8 @@ run: sim.vvp firmware.hex
 trace: sim.vvp firmware.hex
 	vvp sim.vvp +firmware=firmware.hex +trace
 
+wave: run
+	gtkwave rv32i_wave.vcd wave.gtkw &
+
 .DELETE_ON_ERROR:
-.PHONY: all run trace
+.PHONY: all run trace wave
