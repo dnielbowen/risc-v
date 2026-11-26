@@ -667,10 +667,22 @@ class Simulator {
     this.setCoil(k1Id, bBit);
     const k1Closed = this.R(k1Id);
     const prop = aBit ? !k1Closed : k1Closed;
+    if (this.relayMap[k1Id]) {
+      const r1 = this.relayMap[k1Id];
+      r1.p1_nc = aBit;      r1.p1_no = !aBit;     r1.p1_com = prop;
+      r1.p2_nc = !aBit;     r1.p2_no = aBit;      r1.p2_com = !prop;
+      r1.p1_lbl = 'A^B';    r1.p2_lbl = '!(A^B)';
+    }
     this.setCoil(k2Id, prop);
     const k2Closed = this.R(k2Id);
     const sum = cinBit ? !k2Closed : k2Closed;
     const cout = k2Closed ? cinBit : aBit;
+    if (this.relayMap[k2Id]) {
+      const r2 = this.relayMap[k2Id];
+      r2.p1_nc = cinBit;    r2.p1_no = !cinBit;   r2.p1_com = sum;
+      r2.p2_nc = aBit;      r2.p2_no = cinBit;    r2.p2_com = cout;
+      r2.p1_lbl = 'SUM';    r2.p2_lbl = 'COUT';
+    }
     return { sum, cout };
   }
 
@@ -1059,8 +1071,8 @@ resizeCanvas();
 function drawRelay(r, W, H, scale) {
   const cx = r.x * W;
   const cy = r.y * H;
-  const rw = 58 * scale;
-  const rh = 96 * scale;
+  const rw = 82 * scale;
+  const rh = 116 * scale;
 
   ctx.save();
   ctx.translate(cx, cy);
@@ -1073,8 +1085,8 @@ function drawRelay(r, W, H, scale) {
   ctx.fill();
   ctx.stroke();
 
-  const coilW = 20 * scale;
-  const coilH = 44 * scale;
+  const coilW = 22 * scale;
+  const coilH = 54 * scale;
   const coilX = -rw / 2 + 7 * scale;
   const coilY = -coilH / 2 + 4 * scale;
 
@@ -1107,35 +1119,78 @@ function drawRelay(r, W, H, scale) {
     ctx.fill();
   }
 
-  const studX = rw / 2 - 12 * scale;
-  const ncY = -16 * scale;
-  const noY = 12 * scale;
-  const pivotY = 28 * scale;
-
-  ctx.fillStyle = !r.closed ? '#38bdf8' : '#475569';
+  ctx.fillStyle = r.coilEnergized ? '#ff9e3b' : '#475569';
   ctx.beginPath();
-  ctx.arc(studX, ncY, 3.2 * scale, 0, Math.PI * 2);
+  ctx.arc(coilX + coilW / 2, coilY - 4 * scale, 3.2 * scale, 0, Math.PI * 2);
   ctx.fill();
 
-  ctx.fillStyle = r.closed ? '#facc15' : '#475569';
-  ctx.beginPath();
-  ctx.arc(studX, noY, 3.2 * scale, 0, Math.PI * 2);
-  ctx.fill();
+  const p1_nc = (r.p1_nc !== undefined) ? r.p1_nc : false;
+  const p1_no = (r.p1_no !== undefined) ? r.p1_no : true;
+  const p1_com = (r.p1_com !== undefined) ? r.p1_com : r.closed;
 
-  const tipY = ncY + (noY - ncY) * r.armaturePos;
-  ctx.strokeStyle = '#eab308';
-  ctx.lineWidth = 2.6 * scale;
-  ctx.beginPath();
-  ctx.moveTo(studX - 10 * scale, pivotY);
-  ctx.lineTo(studX - 2 * scale, tipY);
-  ctx.stroke();
+  const p2_nc = (r.p2_nc !== undefined) ? r.p2_nc : false;
+  const p2_no = (r.p2_no !== undefined) ? r.p2_no : true;
+  const p2_com = (r.p2_com !== undefined) ? r.p2_com : r.closed;
 
-  if (r.flashTimer > 0) {
-    ctx.fillStyle = '#fef08a';
+  const poles = [
+    { yOff: -22 * scale, nc: p1_nc, no: p1_no, com: p1_com, lbl: r.p1_lbl || 'P1' },
+    { yOff:  24 * scale, nc: p2_nc, no: p2_no, com: p2_com, lbl: r.p2_lbl || 'P2' }
+  ];
+
+  const studX = 6 * scale;
+  const comX = rw / 2 - 9 * scale;
+
+  for (const p of poles) {
+    const ncY = p.yOff - 9 * scale;
+    const noY = p.yOff + 9 * scale;
+    const comY = p.yOff;
+
+    ctx.fillStyle = p.nc ? '#ff9e3b' : '#334155';
     ctx.beginPath();
-    ctx.arc(studX, tipY, 5.5 * scale, 0, Math.PI * 2);
+    ctx.arc(studX, ncY, 3.3 * scale, 0, Math.PI * 2);
     ctx.fill();
+
+    ctx.fillStyle = p.no ? '#ff9e3b' : '#334155';
+    ctx.beginPath();
+    ctx.arc(studX, noY, 3.3 * scale, 0, Math.PI * 2);
+    ctx.fill();
+
+    ctx.fillStyle = p.com ? '#34c759' : '#334155';
+    ctx.beginPath();
+    ctx.arc(comX, comY, 3.6 * scale, 0, Math.PI * 2);
+    ctx.fill();
+
+    const tipY = ncY + (noY - ncY) * r.armaturePos;
+    ctx.strokeStyle = p.com ? '#ff9e3b' : '#94a3b8';
+    ctx.lineWidth = 2.4 * scale;
+    ctx.beginPath();
+    ctx.moveTo(comX, comY);
+    ctx.lineTo(studX + 2 * scale, tipY);
+    ctx.stroke();
+
+    if (r.flashTimer > 0) {
+      ctx.fillStyle = '#fef08a';
+      ctx.beginPath();
+      ctx.arc(studX, tipY, 4.5 * scale, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#94a3b8';
+    ctx.font = `${Math.max(7, Math.round(7.5 * scale))}px ui-monospace, monospace`;
+    ctx.textAlign = 'right';
+    ctx.fillText(p.lbl, rw / 2 - 4 * scale, comY - 8 * scale);
   }
+
+  ctx.strokeStyle = 'rgba(229, 184, 75, 0.45)';
+  ctx.setLineDash([2 * scale, 2 * scale]);
+  ctx.lineWidth = 1.2;
+  ctx.beginPath();
+  ctx.moveTo(coilX + coilW, 0);
+  ctx.lineTo(studX + 12 * scale, 0);
+  ctx.moveTo(studX + 12 * scale, -22 * scale);
+  ctx.lineTo(studX + 12 * scale,  24 * scale);
+  ctx.stroke();
+  ctx.setLineDash([]);
 
   ctx.fillStyle = r.closed ? '#ff3b30' : '#331818';
   ctx.beginPath();
@@ -1148,6 +1203,140 @@ function drawRelay(r, W, H, scale) {
   ctx.fillText(r.label, 0, rh / 2 + 13 * scale);
 
   ctx.restore();
+}
+
+function drawWire(points, active, label = '') {
+  ctx.save();
+  ctx.strokeStyle = active ? '#ff9e3b' : '#2d3c52';
+  ctx.lineWidth = active ? 3.0 : 1.8;
+  if (active) {
+    ctx.shadowColor = '#ff9e3b';
+    ctx.shadowBlur = 6;
+  }
+  ctx.beginPath();
+  ctx.moveTo(points[0][0], points[0][1]);
+  for (let i = 1; i < points.length; i++) {
+    ctx.lineTo(points[i][0], points[i][1]);
+  }
+  ctx.stroke();
+  ctx.shadowBlur = 0;
+  if (label) {
+    const [lx, ly] = points[0];
+    ctx.fillStyle = active ? '#fde68a' : '#8b9bb4';
+    ctx.font = '700 11px ui-monospace, monospace';
+    ctx.textAlign = 'left';
+    ctx.fillText(label, lx + 6, ly - 6);
+  }
+  ctx.restore();
+}
+
+function drawAdder2Schematic(W, H, scale) {
+  const r1 = sim.relayMap['XOR1'];
+  const r2 = sim.relayMap['XOR2'];
+  if (!r1 || !r2) return;
+
+  const a = (sim.inA & 1) !== 0;
+  const b = (sim.inB & 1) !== 0;
+  const cin = (sim.inCin & 1) !== 0;
+  const xor1 = r1.p1_com;
+  const sum = r2.p1_com;
+  const cout = r2.p2_com;
+
+  const rw = 82 * scale;
+  const r1x = r1.x * W, r1y = r1.y * H;
+  const r2x = r2.x * W, r2y = r2.y * H;
+
+  const r1CoilX = r1x - rw / 2 + 18 * scale;
+  const r1CoilY = r1y - 27 * scale;
+  const r1StudX = r1x + 6 * scale;
+  const r1ComX  = r1x + rw / 2 - 9 * scale;
+
+  const r2CoilX = r2x - rw / 2 + 18 * scale;
+  const r2CoilY = r2y - 27 * scale;
+  const r2StudX = r2x + 6 * scale;
+  const r2ComX  = r2x + rw / 2 - 9 * scale;
+
+  const leftX = W * 0.08;
+  const rightX = W * 0.87;
+
+  drawWire([
+    [leftX, r1y - 95 * scale],
+    [r1CoilX, r1y - 95 * scale],
+    [r1CoilX, r1CoilY]
+  ], b, `Switch B = ${b ? '1 (+12V)' : '0 (0V)'}  -->  Drives K1 Coil`);
+
+  drawWire([
+    [leftX, r1y - 31 * scale],
+    [r1StudX, r1y - 31 * scale]
+  ], a, `Switch A = ${a ? '1 (+12V)' : '0 (0V)'}  -->  K1.P1_NC & K2.P2_NC`);
+
+  drawWire([
+    [leftX + 55, r1y - 31 * scale],
+    [leftX + 55, r2y + 58 * scale],
+    [r2StudX, r2y + 58 * scale],
+    [r2StudX, r2y + 15 * scale]
+  ], a, '');
+
+  drawWire([
+    [leftX, r1y - 13 * scale],
+    [r1StudX, r1y - 13 * scale]
+  ], !a, `!Switch A = ${!a ? '1 (+12V)' : '0 (0V)'}  -->  K1.P1_NO`);
+
+  drawWire([
+    [r1ComX, r1y - 22 * scale],
+    [(r1x + r2x) / 2, r1y - 22 * scale],
+    [(r1x + r2x) / 2, r2y - 68 * scale],
+    [r2CoilX, r2y - 68 * scale],
+    [r2CoilX, r2CoilY]
+  ], xor1, `A XOR B = ${xor1 ? 1 : 0} (Drives K2 Coil)`);
+
+  drawWire([
+    [leftX, r2y + 88 * scale],
+    [r2StudX - 28, r2y + 88 * scale],
+    [r2StudX - 28, r2y - 31 * scale],
+    [r2StudX, r2y - 31 * scale]
+  ], cin, `Carry In (Cin) = ${cin ? '1 (+12V)' : '0 (0V)'}  -->  K2.P1_NC & K2.P2_NO`);
+
+  drawWire([
+    [r2StudX - 28, r2y + 33 * scale],
+    [r2StudX, r2y + 33 * scale]
+  ], cin, '');
+
+  drawWire([
+    [r2StudX - 14, r2y - 13 * scale],
+    [r2StudX, r2y - 13 * scale]
+  ], !cin, '');
+
+  drawWire([
+    [r2ComX, r2y - 22 * scale],
+    [rightX, r2y - 22 * scale]
+  ], sum, `SUM = ${sum ? 1 : 0}`);
+
+  drawWire([
+    [r2ComX, r2y + 24 * scale],
+    [rightX, r2y + 24 * scale]
+  ], cout, `CARRY OUT = ${cout ? 1 : 0}`);
+
+  const lamps = [
+    { x: rightX + 16, y: r2y - 22 * scale, on: sum, color: '#34c759', lbl: `SUM = ${sum ? 1 : 0}` },
+    { x: rightX + 16, y: r2y + 24 * scale, on: cout, color: '#ff3b30', lbl: `COUT = ${cout ? 1 : 0}` }
+  ];
+  for (const l of lamps) {
+    ctx.save();
+    ctx.fillStyle = l.on ? l.color : '#1e293b';
+    if (l.on) {
+      ctx.shadowColor = l.color;
+      ctx.shadowBlur = 14;
+    }
+    ctx.beginPath();
+    ctx.arc(l.x, l.y, 11, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.shadowBlur = 0;
+    ctx.strokeStyle = '#94a3b8';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+    ctx.restore();
+  }
 }
 
 function renderScene() {
@@ -1211,6 +1400,10 @@ function renderScene() {
       ctx.lineTo(r2.x * W, r2.y * H);
       ctx.stroke();
     }
+  }
+
+  if (sim.mode === 'adder2') {
+    drawAdder2Schematic(W, H, scale);
   }
 
   for (const r of sim.relays) {
