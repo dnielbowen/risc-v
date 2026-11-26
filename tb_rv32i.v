@@ -69,7 +69,11 @@ module tb_rv32i;
             if (|dmem_wstrb) begin
                 if (dmem_addr == 32'h1000_0000) begin
                     // Virtual UART TX: print lowest byte to stdout
-                    $write("%c", dmem_wdata[7:0]);
+                    if (trace_en) begin
+                      $write("UART: %c\n", dmem_wdata[7:0]);
+                    end else begin
+                      $write("%c", dmem_wdata[7:0]);
+                    end
                     $fflush();
                 end else if (dmem_addr == 32'h1000_0004) begin
                     $display("\n[MMIO Debug] CPU wrote 0x%08x (%0d) to 0x1000_0004",
