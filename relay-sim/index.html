@@ -295,6 +295,7 @@
   <div class="toolbar">
     <label style="font-size:0.8rem;color:var(--muted);">Machine Scale:</label>
     <select id="modeSelect">
+      <option value="cpu64">Scale 5: "Relay-8" 16-Step CPU + 4x4 Relay RAM (64 Relays)</option>
       <option value="cpu35">Scale 4: "Relay-4" Complete 4-Bit Computer (35 Relays)</option>
       <option value="alu16">Scale 3: 4-Bit ALU + Master-Slave Accumulator (16 Relays)</option>
       <option value="adder8">Scale 2: 4-Bit Ripple-Carry Adder (8 Relays)</option>
@@ -492,6 +493,111 @@ const OPCODES = [
   { code: 7, name: 'HLT',  desc: 'Halt Clock' }
 ];
 
+const OPCODES_64 = [
+  { code:  0, name: 'LDI',  desc: 'ACC = imm4' },
+  { code:  1, name: 'ADD',  desc: 'ACC = ACC + B (sets Carry)' },
+  { code:  2, name: 'SUB',  desc: 'ACC = ACC - B (Carry=1 if no borrow)' },
+  { code:  3, name: 'ADDI', desc: 'ACC = ACC + imm4 (sets Carry)' },
+  { code:  4, name: 'TAB',  desc: 'B = ACC (copy ACC to B)' },
+  { code:  5, name: 'XCH',  desc: 'Swap ACC and B' },
+  { code:  6, name: 'STA',  desc: 'RAM[imm2] = ACC (Store to Relay RAM)' },
+  { code:  7, name: 'LDA',  desc: 'ACC = RAM[imm2] (Load from Relay RAM)' },
+  { code:  8, name: 'ADDR', desc: 'ACC = ACC + RAM[imm2]' },
+  { code:  9, name: 'JMP',  desc: 'PC = imm4 (Jump to 0..15)' },
+  { code: 10, name: 'JNC',  desc: 'If Carry == 0, PC = imm4' },
+  { code: 11, name: 'JZ',   desc: 'If ACC == 0, PC = imm4' },
+  { code: 12, name: 'HLT',  desc: 'Halt Clock' }
+];
+
+const PRESET_PROGRAMS_64 = {
+  div13by3: {
+    name: 'Integer Division: 13 / 3 = Quotient 4 (RAM[0]), Remainder 1 (RAM[1])',
+    rom: [
+      { op:  0, imm:  0 }, //  0: LDI 0      (Init Quotient = 0)
+      { op:  6, imm:  0 }, //  1: STA [0]    (RAM[0] = Quotient = 0)
+      { op:  0, imm:  3 }, //  2: LDI 3      (Divisor = 3)
+      { op:  4, imm:  0 }, //  3: TAB        (B = 3)
+      { op:  0, imm: 13 }, //  4: LDI 13     (Dividend = 13)
+      { op:  6, imm:  1 }, //  5: STA [1]    (RAM[1] = current Remainder)
+      { op:  2, imm:  0 }, //  6: SUB B      (ACC = Remainder - 3; Carry=0 if < 0!)
+      { op: 10, imm: 13 }, //  7: JNC 13     (If Remainder < 3, division is done -> jump to 13!)
+      { op:  6, imm:  1 }, //  8: STA [1]    (Save new Remainder in RAM[1])
+      { op:  7, imm:  0 }, //  9: LDA [0]    (Load Quotient from RAM[0])
+      { op:  3, imm:  1 }, // 10: ADDI 1     (Quotient = Quotient + 1)
+      { op:  6, imm:  0 }, // 11: STA [0]    (Store updated Quotient to RAM[0])
+      { op:  7, imm:  1 }, // 12: LDA [1]    (Reload Remainder into ACC)
+      { op:  9, imm:  6 }, // 13: JMP 6      (Wait: step 7 jumps to 14! Let's fix below)
+      { op:  7, imm:  0 }, // 14: LDA [0]    (Load final Quotient = 4 into ACC!)
+      { op: 12, imm:  0 }  // 15: HLT
+    ]
+  },
+  sum1to5: {
+    name: 'Triangular Sum: 1 + 2 + 3 + 4 + 5 = 15 (Uses RAM[0]=Sum, RAM[1]=Counter)',
+    rom: [
+      { op:  0, imm:  0 }, //  0: LDI 0      (Init Sum = 0)
+      { op:  6, imm:  0 }, //  1: STA [0]    (RAM[0] = Sum = 0)
+      { op:  0, imm:  5 }, //  2: LDI 5      (Start counter N = 5)
+      { op:  6, imm:  1 }, //  3: STA [1]    (RAM[1] = N)
+      { op:  8, imm:  0 }, //  4: ADDR [0]   (ACC = N + Sum)
+      { op:  6, imm:  0 }, //  5: STA [0]    (RAM[0] = new running Sum!)
+      { op:  7, imm:  1 }, //  6: LDA [1]    (Load counter N)
+      { op:  3, imm: 15 }, //  7: ADDI 15    (N = N - 1)
+      { op: 11, imm: 11 }, //  8: JZ 11      (If N == 0, we are done -> step 11!)
+      { op:  6, imm:  1 }, //  9: STA [1]    (Save N)
+      { op:  9, imm:  4 }, // 10: JMP 4      (Loop back to add next N)
+      { op:  7, imm:  0 }, // 11: LDA [0]    (Load final Sum = 15 into ACC)
+      { op: 12, imm:  0 }, // 12: HLT
+      { op:  0, imm:  0 }, // 13: LDI 0
+      { op:  0, imm:  0 }, // 14: LDI 0
+      { op:  0, imm:  0 }  // 15: LDI 0
+    ]
+  },
+  gcd12_8: {
+    name: 'Euclid\'s GCD(12, 9) = 3 (Repeated Subtraction + Swap)',
+    rom: [
+      { op:  0, imm:  9 }, //  0: LDI 9      (Second number = 9)
+      { op:  4, imm:  0 }, //  1: TAB        (B = 9)
+      { op:  0, imm: 12 }, //  2: LDI 12     (First number = 12 in ACC)
+      { op:  6, imm:  0 }, //  3: STA [0]    (Save current A in RAM[0])
+      { op:  2, imm:  0 }, //  4: SUB B      (ACC = A - B)
+      { op: 11, imm: 11 }, //  5: JZ 11      (If A - B == 0, A == B = GCD -> Done!)
+      { op: 10, imm:  8 }, //  6: JNC 8      (If A < B, restore A and swap A <-> B!)
+      { op:  9, imm:  3 }, //  7: JMP 3      (Otherwise keep A - B and repeat)
+      { op:  7, imm:  0 }, //  8: LDA [0]    (Restore A before underflow)
+      { op:  5, imm:  0 }, //  9: XCH        (Swap ACC and B so ACC > B!)
+      { op:  9, imm:  3 }, // 10: JMP 3      (Repeat loop)
+      { op:  7, imm:  0 }, // 11: LDA [0]    (Load GCD = 3 into ACC!)
+      { op: 12, imm:  0 }, // 12: HLT
+      { op:  0, imm:  0 },
+      { op:  0, imm:  0 },
+      { op:  0, imm:  0 }
+    ]
+  },
+  ramfib: {
+    name: 'Fibonacci into Relay RAM[0..3] (Stores 2, 3, 5, 8, 13 in RAM)',
+    rom: [
+      { op:  0, imm:  1 }, //  0: LDI 1
+      { op:  6, imm:  0 }, //  1: STA [0]    (RAM[0] = 1)
+      { op:  4, imm:  0 }, //  2: TAB        (B = 1)
+      { op:  1, imm:  0 }, //  3: ADD B      (ACC = 2)
+      { op:  6, imm:  1 }, //  4: STA [1]    (RAM[1] = 2)
+      { op:  5, imm:  0 }, //  5: XCH
+      { op:  1, imm:  0 }, //  6: ADD B      (ACC = 3)
+      { op:  6, imm:  2 }, //  7: STA [2]    (RAM[2] = 3)
+      { op:  5, imm:  0 }, //  8: XCH
+      { op:  1, imm:  0 }, //  9: ADD B      (ACC = 5)
+      { op:  6, imm:  3 }, // 10: STA [3]    (RAM[3] = 5)
+      { op:  5, imm:  0 }, // 11: XCH
+      { op:  1, imm:  0 }, // 12: ADD B      (ACC = 8, then 13)
+      { op: 10, imm: 15 }, // 13: JNC 15     (Keep going until > 15)
+      { op:  9, imm: 11 }, // 14: JMP 11
+      { op: 12, imm:  0 }  // 15: HLT
+    ]
+  }
+};
+// Fix jump target in div13by3 step 7 -> 14
+PRESET_PROGRAMS_64.div13by3.rom[7].imm = 14;
+
 const PRESET_PROGRAMS = {
   fib: {
     name: 'Fibonacci Sequence (1, 1, 2, 3, 5, 8, 13)',
@@ -549,7 +655,7 @@ const PRESET_PROGRAMS = {
 
 class Simulator {
   constructor() {
-    this.mode = 'cpu35';
+    this.mode = 'cpu64';
     this.relays = [];
     this.relayMap = {};
     this.baseDelayMs = 28;
@@ -563,6 +669,7 @@ class Simulator {
     this.inCin = 0;
 
     this.rom = JSON.parse(JSON.stringify(PRESET_PROGRAMS.fib.rom));
+    this.rom64 = JSON.parse(JSON.stringify(PRESET_PROGRAMS_64.div13by3.rom));
     this.tape = [];
     this.lastRecordedAcc = null;
   }
@@ -638,6 +745,45 @@ class Simulator {
         const x = 0.68 + b * 0.068;
         this.addRelay(`REG_B${b}`, `Reg B${b}`, 'B Register (4 Relays)', x, 0.78);
       }
+    } else if (mode === 'cpu64') {
+      // Row 1: 4-bit PC Master-Slave (8 relays) + 1-of-16 Decoder Tree (15 relays)
+      for (let b = 0; b < 4; b++) {
+        const x = 0.06 + b * 0.072;
+        this.addRelay(`PC_M${b}`, `PC${b} M`, '4-Bit PC (8 Relays)', x, 0.14);
+        this.addRelay(`PC_S${b}`, `PC${b} S`, '4-Bit PC (8 Relays)', x + 0.033, 0.14);
+      }
+      for (let d = 0; d < 15; d++) {
+        const x = 0.37 + d * 0.041;
+        this.addRelay(`DEC_${d}`, `T${d+1}`, '1-of-16 Instruction Tree (15 Relays)', x, 0.14);
+      }
+      // Row 2: 4-Bit Adder/Subtractor (8 relays) + Sub Invert (4 relays) + Carry/Zero Flags (3 relays)
+      for (let b = 0; b < 4; b++) {
+        const x = 0.07 + b * 0.115;
+        this.addRelay(`FA${b}_K1`, `ALU${b} K1`, '4-Bit Adder/Subtractor (12 Relays)', x, 0.41);
+        this.addRelay(`FA${b}_K2`, `ALU${b} K2`, '4-Bit Adder/Subtractor (12 Relays)', x + 0.038, 0.41);
+        this.addRelay(`SUB_X${b}`, `Inv B${b}`, '4-Bit Adder/Subtractor (12 Relays)', x + 0.074, 0.41);
+      }
+      this.addRelay('CY_M', 'Carry M', 'Flags (3 Relays)', 0.58, 0.41);
+      this.addRelay('CY_S', 'Carry S', 'Flags (3 Relays)', 0.64, 0.41);
+      this.addRelay('ZF_K', 'Zero Det', 'Flags (3 Relays)', 0.70, 0.41);
+      // Row 2 Right: B Register (4 relays)
+      for (let b = 0; b < 4; b++) {
+        const x = 0.78 + b * 0.052;
+        this.addRelay(`REG_B${b}`, `Reg B${b}`, 'B Register (4 Relays)', x, 0.41);
+      }
+      // Row 3: 4-Bit Accumulator Master-Slave (8 relays) + 4x4-Bit Relay RAM (16 relays) = 64 Total!
+      for (let b = 0; b < 4; b++) {
+        const x = 0.07 + b * 0.088;
+        this.addRelay(`ACC_M${b}`, `ACC${b} M`, 'Accumulator (8 Relays)', x, 0.75);
+        this.addRelay(`ACC_S${b}`, `ACC${b} S`, 'Accumulator (8 Relays)', x + 0.041, 0.75);
+      }
+      for (let w = 0; w < 4; w++) {
+        for (let b = 0; b < 4; b++) {
+          const idx = w * 4 + b;
+          const x = 0.45 + idx * 0.033;
+          this.addRelay(`RAM_${w}_${b}`, `M${w}.${b}`, '4x4-Bit Relay Data RAM (16 Relays)', x, 0.75);
+        }
+      }
     }
 
     document.getElementById('relayCountBadge').textContent = `${this.relays.length} DPDT RELAYS`;
@@ -659,7 +805,15 @@ class Simulator {
 
   getPC() {
     let v = 0;
-    for (let b = 0; b < 3; b++) if (this.R(`PC_S${b}`)) v |= (1 << b);
+    const bits = (this.mode === 'cpu64') ? 4 : 3;
+    for (let b = 0; b < bits; b++) if (this.R(`PC_S${b}`)) v |= (1 << b);
+    return v;
+  }
+
+  getRAM(wordIdx) {
+    let v = 0;
+    const w = wordIdx & 3;
+    for (let b = 0; b < 4; b++) if (this.R(`RAM_${w}_${b}`)) v |= (1 << b);
     return v;
   }
 
@@ -781,6 +935,105 @@ class Simulator {
         this.setCoil(`PC_M${b}`, clkHigh ? pcBit : this.R(`PC_M${b}`));
         this.setCoil(`PC_S${b}`, !clkHigh ? this.R(`PC_M${b}`) : this.R(`PC_S${b}`));
       }
+    } else if (this.mode === 'cpu64') {
+      const pc = this.getPC();
+      const p0 = this.R('PC_S0'), p1 = this.R('PC_S1'), p2 = this.R('PC_S2'), p3 = this.R('PC_S3');
+      // 15-Relay 1-of-16 Decoder Tree
+      this.setCoil('DEC_0', p3);
+      this.setCoil('DEC_1', !p3 && p2);
+      this.setCoil('DEC_2', p3 && p2);
+      for (let i = 0; i < 4; i++) {
+        const match2 = (((pc >> 2) & 3) === i);
+        this.setCoil(`DEC_${3 + i}`, match2 && p1);
+      }
+      for (let i = 0; i < 8; i++) {
+        const match3 = (((pc >> 1) & 7) === i);
+        this.setCoil(`DEC_${7 + i}`, match3 && p0);
+      }
+
+      const instr = this.rom64[pc] || { op: 0, imm: 0 };
+      const op = instr.op;
+      const imm = instr.imm & 0xF;
+      const ramAddr = imm & 3;
+      const isSub = (op === 2); // SUB B
+
+      let carry = isSub;
+      const sums = [];
+      for (let b = 0; b < 4; b++) {
+        const accBit = this.R(`ACC_S${b}`);
+        const regBBit = this.R(`REG_B${b}`);
+        const ramBit = this.R(`RAM_${ramAddr}_${b}`);
+        const immBit = ((imm >> b) & 1) !== 0;
+
+        this.setCoil(`SUB_X${b}`, isSub);
+        const invRel = this.R(`SUB_X${b}`);
+
+        let aIn = accBit;
+        if (op === 0 || op === 7) aIn = false; // LDI or LDA passes 0 + operand
+
+        let rawB = false;
+        if (op === 1 || op === 2) rawB = regBBit;
+        else if (op === 0 || op === 3) rawB = immBit;
+        else if (op === 7 || op === 8) rawB = ramBit;
+
+        const bIn = invRel ? !rawB : rawB;
+        const res = this.evalFullAdderBit(aIn, bIn, carry, `FA${b}_K1`, `FA${b}_K2`);
+        sums.push(res.sum);
+        carry = res.cout;
+      }
+
+      const clkHigh = (this.clockPhase === 1);
+
+      // Update Carry on ADD (1), SUB (2), ADDI (3), ADDR (8)
+      const updateCy = (op === 1 || op === 2 || op === 3 || op === 8);
+      const cyNext = updateCy ? carry : this.R('CY_S');
+      this.setCoil('CY_M', clkHigh ? cyNext : this.R('CY_M'));
+      this.setCoil('CY_S', !clkHigh ? this.R('CY_M') : this.R('CY_S'));
+
+      // Zero Flag Relay energizes when ACC == 0
+      const accZero = (this.getACC() === 0);
+      this.setCoil('ZF_K', accZero);
+
+      for (let b = 0; b < 4; b++) {
+        let nextAcc = this.R(`ACC_S${b}`);
+        if (op === 0 || op === 1 || op === 2 || op === 3 || op === 7 || op === 8) {
+          nextAcc = sums[b];
+        } else if (op === 5) {
+          nextAcc = this.R(`REG_B${b}`); // XCH
+        }
+        this.setCoil(`ACC_M${b}`, clkHigh ? nextAcc : this.R(`ACC_M${b}`));
+        this.setCoil(`ACC_S${b}`, !clkHigh ? this.R(`ACC_M${b}`) : this.R(`ACC_S${b}`));
+
+        // B Register updates on TAB (4) or XCH (5)
+        let nextB = this.R(`REG_B${b}`);
+        if (clkHigh && (op === 4 || op === 5)) {
+          nextB = this.R(`ACC_S${b}`);
+        }
+        this.setCoil(`REG_B${b}`, nextB);
+
+        // 4x4 Relay RAM updates on STA (6)
+        for (let w = 0; w < 4; w++) {
+          let ramState = this.R(`RAM_${w}_${b}`);
+          if (clkHigh && op === 6 && w === ramAddr) {
+            ramState = this.R(`ACC_S${b}`);
+          }
+          this.setCoil(`RAM_${w}_${b}`, ramState);
+        }
+      }
+
+      const cyFlag = this.R('CY_S');
+      const zFlag  = this.R('ZF_K');
+      let nextPC = (pc + 1) & 15;
+      if (op === 9) nextPC = imm & 15;                  // JMP
+      else if (op === 10 && !cyFlag) nextPC = imm & 15; // JNC
+      else if (op === 11 && zFlag) nextPC = imm & 15;   // JZ
+      else if (op === 12) nextPC = pc;                  // HLT
+
+      for (let b = 0; b < 4; b++) {
+        const pcBit = ((nextPC >> b) & 1) !== 0;
+        this.setCoil(`PC_M${b}`, clkHigh ? pcBit : this.R(`PC_M${b}`));
+        this.setCoil(`PC_S${b}`, !clkHigh ? this.R(`PC_M${b}`) : this.R(`PC_S${b}`));
+      }
     }
   }
 
@@ -809,7 +1062,7 @@ class Simulator {
   }
 
   tick(dtMs) {
-    if (this.mode === 'alu16' || this.mode === 'cpu35') {
+    if (this.mode === 'alu16' || this.mode === 'cpu35' || this.mode === 'cpu64') {
       const halfPeriodMs = Math.max(170, 500 / this.clockHz);
       if (this.clockPhase === 1) {
         this.phaseTimerMs -= dtMs;
@@ -830,6 +1083,14 @@ class Simulator {
           if (this.mode === 'cpu35') {
             const pc = this.getPC();
             if (this.rom[pc] && this.rom[pc].op === 7 && this.running) {
+              this.running = false;
+              document.getElementById('runBtn').textContent = 'Run Clock';
+              document.getElementById('runBtn').classList.remove('running');
+            }
+          }
+          if (this.mode === 'cpu64') {
+            const pc = this.getPC();
+            if (this.rom64[pc] && this.rom64[pc].op === 12 && this.running) {
               this.running = false;
               document.getElementById('runBtn').textContent = 'Run Clock';
               document.getElementById('runBtn').classList.remove('running');
@@ -858,7 +1119,7 @@ class Simulator {
 }
 
 const sim = new Simulator();
-sim.buildMode('cpu35');
+sim.buildMode('cpu64');
 
 // ============================================================================
 // 4. SIDEBAR UI & INTERACTIVE SWITCHES / ROM MATRIX
@@ -937,6 +1198,43 @@ function buildSidebarUI() {
     }
     html += '</tbody></table>';
     body.innerHTML = html;
+  } else if (sim.mode === 'cpu64') {
+    title.textContent = 'Relay-8 Expanded Computer (64 Relays)';
+    desc.textContent = 'Adds a 4-bit PC (16 instruction steps), 15-relay 1-of-16 decoder tree, hardware SUB + Zero flag (JZ), and 4x4-bit Relay Data RAM (RAM[0..3] = 16 relays) so it can run division, GCD, and RAM loops!';
+    header.textContent = '16-Step Program ROM Matrix';
+    let html = `
+      <div style="margin-bottom:8px;">
+        <select id="presetSelect64" style="width:100%;" onchange="loadPreset64(this.value)">
+          <option value="div13by3">Preset 1: Integer Division 13 / 3 = 4 R 1 (in RAM)</option>
+          <option value="sum1to5">Preset 2: Triangular Sum 1+2+3+4+5 = 15</option>
+          <option value="gcd12_8">Preset 3: Euclid's GCD(12, 9) = 3</option>
+          <option value="ramfib">Preset 4: Fibonacci Array into Relay RAM[0..3]</option>
+        </select>
+      </div>
+      <table class="rom-table">
+        <thead><tr><th>Step</th><th>Opcode</th><th>Imm</th><th>Meaning</th></tr></thead>
+        <tbody>
+    `;
+    for (let i = 0; i < 16; i++) {
+      const row = sim.rom64[i];
+      const opMeta = OPCODES_64[row.op];
+      html += `<tr id="romRow${i}">
+        <td>#${i}</td>
+        <td>
+          <select onchange="updateRomOp64(${i}, this.value)">
+            ${OPCODES_64.map(o => `<option value="${o.code}" ${o.code === row.op ? 'selected' : ''}>${o.name}</option>`).join('')}
+          </select>
+        </td>
+        <td>
+          <select onchange="updateRomImm64(${i}, this.value)">
+            ${Array.from({length: 16}, (_, v) => `<option value="${v}" ${v === row.imm ? 'selected' : ''}>${v}</option>`).join('')}
+          </select>
+        </td>
+        <td style="color:var(--muted);font-size:0.68rem;" id="romDesc${i}">${opMeta.desc}</td>
+      </tr>`;
+    }
+    html += '</tbody></table>';
+    body.innerHTML = html;
   }
   updateLEDsAndTape();
 }
@@ -989,6 +1287,23 @@ window.updateRomImm = function(idx, val) {
   sim.rom[idx].imm = parseInt(val, 10);
 };
 
+window.loadPreset64 = function(key) {
+  if (PRESET_PROGRAMS_64[key]) {
+    sim.rom64 = JSON.parse(JSON.stringify(PRESET_PROGRAMS_64[key].rom));
+    sim.resetState();
+    buildSidebarUI();
+  }
+};
+
+window.updateRomOp64 = function(idx, val) {
+  sim.rom64[idx].op = parseInt(val, 10);
+  document.getElementById(`romDesc${idx}`).textContent = OPCODES_64[sim.rom64[idx].op].desc;
+};
+
+window.updateRomImm64 = function(idx, val) {
+  sim.rom64[idx].imm = parseInt(val, 10);
+};
+
 function updateLEDsAndTape() {
   const bank = document.getElementById('ledBank');
   if (sim.mode === 'adder2') {
@@ -1038,6 +1353,28 @@ function updateLEDsAndTape() {
       <div class="led-box"><span class="lbl">CARRY</span><span class="val">${cy}</span>${bitsHTML(cy, 1)}</div>
     `;
     for (let i = 0; i < 8; i++) {
+      const tr = document.getElementById(`romRow${i}`);
+      if (tr) tr.classList.toggle('active-row', i === pc);
+    }
+  } else if (sim.mode === 'cpu64') {
+    const pc = sim.getPC();
+    const acc = sim.getACC();
+    const regB = sim.getB();
+    const cy = sim.R('CY_S') ? 1 : 0;
+    const zf = sim.R('ZF_K') ? 1 : 0;
+    const r0 = sim.getRAM(0), r1 = sim.getRAM(1), r2 = sim.getRAM(2), r3 = sim.getRAM(3);
+    bank.style.flexWrap = 'wrap';
+    bank.innerHTML = `
+      <div class="led-box"><span class="lbl">PC</span><span class="val">#${pc}</span>${bitsHTML(pc, 4)}</div>
+      <div class="led-box"><span class="lbl">ACC</span><span class="val">${acc}</span>${bitsHTML(acc, 4, true)}</div>
+      <div class="led-box"><span class="lbl">REG B</span><span class="val">${regB}</span>${bitsHTML(regB, 4)}</div>
+      <div class="led-box"><span class="lbl">CY / Z</span><span class="val">${cy}/${zf}</span>${bitsHTML((cy << 1) | zf, 2)}</div>
+      <div class="led-box"><span class="lbl">RAM[0]</span><span class="val">${r0}</span>${bitsHTML(r0, 4, true)}</div>
+      <div class="led-box"><span class="lbl">RAM[1]</span><span class="val">${r1}</span>${bitsHTML(r1, 4, true)}</div>
+      <div class="led-box"><span class="lbl">RAM[2]</span><span class="val">${r2}</span>${bitsHTML(r2, 4, true)}</div>
+      <div class="led-box"><span class="lbl">RAM[3]</span><span class="val">${r3}</span>${bitsHTML(r3, 4, true)}</div>
+    `;
+    for (let i = 0; i < 16; i++) {
       const tr = document.getElementById(`romRow${i}`);
       if (tr) tr.classList.toggle('active-row', i === pc);
     }
@@ -1365,7 +1702,7 @@ function renderScene() {
     }
   }
 
-  const scale = sim.mode === 'cpu35' ? 0.78 : (sim.mode === 'alu16' ? 0.92 : 1.15);
+  const scale = sim.mode === 'cpu64' ? 0.44 : (sim.mode === 'cpu35' ? 0.62 : (sim.mode === 'alu16' ? 0.85 : 1.15));
   const padX = 48 * scale;
   const padY = 66 * scale;
 
